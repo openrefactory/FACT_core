@@ -188,15 +188,16 @@ def analysis_plugin(request, monkeypatch, patch_cfg):
     plugin_init_kwargs_marker = request.node.get_closest_marker('plugin_init_kwargs')
     kwargs = plugin_init_kwargs_marker.kwargs if plugin_init_kwargs_marker else {}
 
-    plugin_instance = PluginClass(
-        view_updater=CommonDatabaseMock(),
-        **kwargs,
-    )
-
     # We don't want to actually start workers when testing, except for some special cases
     plugin_start_worker_marker = request.node.get_closest_marker('plugin_start_worker')
-    if plugin_start_worker_marker:
-        plugin_instance.start()
+    with monkeypatch.context() as mkp:
+        if plugin_start_worker_marker is None:
+            mkp.setattr(PluginClass, 'start', lambda _: None)
+        plugin_instance = PluginClass(
+            view_updater=CommonDatabaseMock(),
+            **kwargs,
+        )
+
     yield plugin_instance
 
     plugin_instance.shutdown()
